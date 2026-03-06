@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Cover Report</title>
+    <meta charset="UTF-8">
+
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #f2f2f2;
+        }
+
+        h2 {
+            margin-bottom: 10px;
+        }
+
+        .btn {
+            padding: 8px 18px;
+            font-size: 14px;
+            border: none;
+            cursor: pointer;
+            margin-right: 10px;
+            color: white;
+        }
+
+        .print-btn {
+            background: #4CAF50;
+        }
+
+        .excel-btn {
+            background: #2196F3;
+        }
+
+        .voucher-box {
+            background: #e6e6e6;
+            padding: 10px;
+            margin-top: 25px;
+            border: 1px solid #cfcfcf;
+        }
+
+        .voucher-title {
+            font-weight: bold;
+            text-align: center;
+            padding: 6px;
+            background: #d9d9d9;
+            border: 1px solid #bbb;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 5px;
+            background: white;
+        }
+
+        th, td {
+            border: 1px solid #999;
+            padding: 6px;
+            text-align: center;
+        }
+
+        th {
+            background: #efefef;
+        }
+
+        .total-row {
+            font-weight: bold;
+            background: #f4f4f4;
+        }
+
+        .grand-total {
+            font-size: 16px;
+            font-weight: bold;
+            background: #d9edf7;
+        }
+
+        @media print {
+            .no-print {
+                display: none;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<h2>Cover Report</h2>
+
+<div class="no-print">
+    <button class="btn print-btn" onclick="window.print()">Print</button>
+    <button class="btn excel-btn" onclick="exportToExcel()">Export to Excel</button>
+</div>
+
+<div id="reportContainer"></div>
+
+<script>
+
+    async function loadReport() {
+    
+        const urlParams = new URLSearchParams(window.location.search);
+        const from = urlParams.get("from");
+        const to = urlParams.get("to");
+    
+        const response = await fetch(`/api/cover_report_lq?from=${from}&to=${to}`);
+        const data = await response.json();
+    
+        const container = document.getElementById("reportContainer");
+        container.innerHTML = "";
+    
+        if (!data || data.length === 0) {
+            container.innerHTML = "<p>No records found.</p>";
+            return;
+        }
+    
+        let grandTotal = 0;
+        let grandUnits = "";
+    
+        data.forEach(voucher => {
+    
+            let voucherTotal = 0;
+    
+            const box = document.createElement("div");
+            box.className = "voucher-box";
+    
+            box.innerHTML = `
+                <div class="voucher-title">
+                    Voucher #${voucher.voucher_no} |
+                    Received: ${formatDate(voucher.received_date)} |
+                    Delivery: ${formatDate(voucher.delivery_date)} |
+                    Party: ${voucher.party_name}
+                </div>
+            `;
+    
+            let table = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Model</th>
+                            <th>PL/DX</th>
+                            <th>LQ/PC</th>
+                            <th>Colour</th>
+                            <th>Qty</th>
+                            <th>Units</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+    
+            voucher.entries.forEach((row, index) => {
+    
+                const qty = Number(row.qty) || 0;
+    
+                voucherTotal += qty;
+                grandTotal += qty;
+    
+                if (!grandUnits && row.units) {
+                    grandUnits = row.units;
+                }
+    
+                table += `
+                    <tr>
+                        <td>${row.model_name}</td>
+                        <td>${row.pl_dx}</td>
+                        <td>${row.lq_pc}</td>
+                        <td>${row.colours}</td>
+                        <td>${qty}</td>
+                        <td>${row.units}</td>
+                    </tr>
+                `;
+            });
+    
+            table += `
+                    <tr class="total-row">
+                        <td colspan="4">Total</td>
+                        <td>${voucherTotal}</td>
+                        <td></td>
+                    </tr>
+                </tbody>
+                </table>
+            `;
+    
+            box.innerHTML += table;
+            container.appendChild(box);
+        });
+    
+        // GRAND TOTAL ALWAYS SHOW
+        const grandTable = `
+            <table style="margin-top:30px;">
+                <tr class="grand-total">
+                    <td colspan="4">GRAND TOTAL</td>
+                    <td>${grandTotal}</td>
+                    <td>${grandUnits}</td>
+                </tr>
+            </table>
+        `;
+    
+        container.innerHTML += grandTable;
+    }
+    
+    function formatDate(dateStr) {
+        return new Date(dateStr).toISOString().split('T')[0];
+    }
+
+    
+async function exportToExcel() {
+
+    const container = document.getElementById("reportContainer");
+    const voucherBoxes = container.querySelectorAll(".voucher-box");
+
+    if (voucherBoxes.length === 0) {
+        alert("No data to export!");
+        return;
+    }
+
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet("Cover Painting");
+
+    worksheet.columns = [
+        { width: 14 },
+        { width: 8 },
+        { width: 8 },
+        { width: 10 },
+        { width: 8 },
+        { width: 8 }
+    ];
+
+    let grandTotal = 0;
+    let grandUnits = "";
+
+    // ===== TITLE =====
+    let row = worksheet.addRow(["COVER PAINTING"]);
+    worksheet.mergeCells(`A${row.number}:F${row.number}`);
+    row.font = { size: 20, bold: true };
+    row.alignment = { horizontal: "center", vertical: "middle" };
+    row.height = 28;   // ✅ Removed extra bottom margin
+
+    // Remove borders from title row completely
+for (let i = 1; i <= 6; i++) {
+    row.getCell(i).border = {};
+}
+
+
+    voucherBoxes.forEach((box) => {
+
+        const titleText = box.querySelector(".voucher-title").innerText;
+        const parts = titleText.split("|");
+
+        const party = parts[3] ? parts[3].replace("Party:", "").trim() : "";
+        const receivedRaw = parts[1] ? parts[1].replace("Received:", "").trim() : "";
+        const deliveryRaw = parts[2] ? parts[2].replace("Delivery:", "").trim() : "";
+
+        function formatDate(d) {
+            const dt = new Date(d);
+            const day = String(dt.getDate()).padStart(2,'0');
+            const month = String(dt.getMonth()+1).padStart(2,'0');
+            return day + "-" + month;
+        }
+
+        const dateLine = formatDate(receivedRaw) + " | " + formatDate(deliveryRaw);
+
+        // ===== PARTY (Row 2 – no empty row before it) =====
+        row = worksheet.addRow([party]);
+        worksheet.mergeCells(`A${row.number}:F${row.number}`);
+        row.font = { size: 15, bold: true };
+        row.alignment = { horizontal: "center" };
+
+        // ===== DATE (Row 3 – no empty row after it) =====
+        row = worksheet.addRow([dateLine]);
+        worksheet.mergeCells(`A${row.number}:F${row.number}`);
+        row.alignment = { horizontal: "center" };
+
+        // ===== HEADERS =====
+        row = worksheet.addRow(["Model", "PL/DX", "LQ/PC", "Colour", "Qty", "Units"]);
+        row.font = { bold: true };
+        row.alignment = { horizontal: "center" };
+
+        row.eachCell(cell => {
+            cell.border = {
+                top: { style: 'thin' },
+                left: { style: 'thin' },
+                bottom: { style: 'thin' },
+                right: { style: 'thin' }
+            };
+        });
+
+        const table = box.querySelector("table");
+        const rows = table.querySelectorAll("tbody tr");
+
+        rows.forEach(tr => {
+
+            const cells = tr.querySelectorAll("td");
+            const rowData = [];
+            cells.forEach(cell => rowData.push(cell.innerText.trim()));
+
+            if (rowData.includes("Total")) {
+
+                const qty = Number(rowData[rowData.length - 2]) || 0;
+
+// Always take units from first data row of table
+                const firstDataRow = table.querySelector("tbody tr td:last-child");
+                const units = firstDataRow ? firstDataRow.innerText.trim() : "";
+                grandTotal += qty;
+                grandUnits = units;
+
+                const totalRow = worksheet.addRow(["", "", "", "Total", qty, units]);
+                totalRow.font = { bold: true };
+
+                totalRow.getCell(4).alignment = { horizontal: "right" };
+                totalRow.getCell(5).alignment = { horizontal: "right" };
+                totalRow.getCell(6).alignment = { horizontal: "right" };
+
+                for (let i = 1; i <= 6; i++) {
+                    totalRow.getCell(i).border = {
+                        top: { style: 'thin' },
+                        left: { style: 'thin' },
+                        bottom: { style: 'thin' },
+                        right: { style: 'thin' }
+                    };
+                }
+
+            } else {
+
+                const newRow = worksheet.addRow(rowData);
+                newRow.alignment = { horizontal: "center" };
+
+                for (let i = 1; i <= 6; i++) {
+                    newRow.getCell(i).border = {
+                        top: { style: 'thin' },
+                        left: { style: 'thin' },
+                        bottom: { style: 'thin' },
+                        right: { style: 'thin' }
+                    };
+                }
+            }
+        });
+    });
+
+    // ===== GRAND TOTAL =====
+
+    // ===== GRAND TOTAL =====
+row = worksheet.addRow(["", "", "GRAND TOTAL", "", grandTotal, grandUnits]);
+
+// Merge C & D
+worksheet.mergeCells(`C${row.number}:D${row.number}`);
+
+row.font = { bold: true };
+
+// Alignment
+row.getCell(3).alignment = { horizontal: "right" }; // merged cell
+row.getCell(5).alignment = { horizontal: "right" };
+row.getCell(6).alignment = { horizontal: "right" };
+
+// Apply borders
+for (let i = 1; i <= 6; i++) {
+    row.getCell(i).border = {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' }
+    };
+}
+
+    // ===== DOUBLE OUTER BORDER FRAME =====
+    // ===== DOUBLE OUTER BORDER FRAME =====
+const lastRowNumber = worksheet.lastRow.number;
+
+for (let r = 2; r <= lastRowNumber; r++) {   // 🔥 Start from row 2
+    for (let c = 1; c <= 6; c++) {
+
+        const cell = worksheet.getRow(r).getCell(c);
+
+        // Top border (apply only to row 2)
+        if (r === 2) {
+            cell.border = { ...cell.border, top: { style: 'double' } };
+        }
+
+        // Bottom border
+        if (r === lastRowNumber) {
+            cell.border = { ...cell.border, bottom: { style: 'double' } };
+        }
+
+        // Left border
+        if (c === 1) {
+            cell.border = { ...cell.border, left: { style: 'double' } };
+        }
+
+        // Right border
+        if (c === 6) {
+            cell.border = { ...cell.border, right: { style: 'double' } };
+        }
+    }
+}    const buffer = await workbook.xlsx.writeBuffer();
+    saveAs(new Blob([buffer]), "Cover_Painting_Report.xlsx");
+}
+        
+
+    loadReport();
+    
+    </script>
+</body>
+</html>

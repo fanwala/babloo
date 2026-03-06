@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Painting Report</title>
+
+<style>
+
+body{
+font-family:Arial;
+background:#f4f6f9;
+margin:0;
+padding:20px
+}
+
+button{
+padding:8px 14px;
+border:none;
+cursor:pointer;
+margin-right:10px
+}
+
+.excel-btn{background:#4CAF50;color:white}
+.print-btn{background:#e91e63;color:white}
+
+.report-box{
+background:white;
+padding:20px;
+margin-bottom:20px;
+border-radius:6px;
+box-shadow:0 2px 6px rgba(0,0,0,0.1)
+}
+
+.voucher-header{
+display:flex;
+justify-content:space-between;
+font-weight:bold;
+margin-bottom:6px
+}
+
+table{
+width:100%;
+border-collapse:collapse;
+margin-top:10px
+}
+
+th,td{
+border:1px solid #ccc;
+padding:6px;
+text-align:center
+}
+
+th{
+background:#2196f3;
+color:white
+}
+
+.total-row{
+font-weight:bold;
+background:#f0f0f0
+}
+
+#grandTotalBox{
+margin-top:20px;
+padding:10px;
+background:#e8f5e9;
+font-weight:bold
+}
+
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+
+</head>
+
+<body>
+
+<h2>Painting Report</h2>
+
+<button class="excel-btn" onclick="exportToExcel()">Export To Excel</button>
+<button class="print-btn" onclick="printReport()">Print</button>
+
+<div id="reportContainer"></div>
+<div id="grandTotalBox"></div>
+
+<script>
+
+const params=new URLSearchParams(window.location.search)
+const from=params.get("from")
+const to=params.get("to")
+
+let reportData=[]
+
+async function loadReport(){
+
+const res=await fetch(`/api/cover_report?from=${from}&to=${to}`)
+const data=await res.json()
+
+reportData=data.filter(r=>r.lq_pc==="LQ")
+
+const grouped={}
+
+reportData.forEach(r=>{
+if(!grouped[r.id]){
+grouped[r.id]={header:r,items:[]}
+}
+grouped[r.id].items.push(r)
+})
+
+let grandTotal=0
+let grandUnit=""
+let html=""
+
+Object.values(grouped).forEach(voucher=>{
+
+let header=voucher.header
+
+html+=`
+<div class="report-box">
+
+<div class="voucher-header">
+<div>${formatDate(header.received_date)} | ${formatDate(header.delivery_date)}</div>
+<div>${header.party_name}</div>
+</div>
+
+<table>
+<tr>
+<th>Model</th>
+<th>PL/DX</th>
+<th>LQ/PC</th>
+<th>Colour</th>
+<th>Qty</th>
+<th>Units</th>
+</tr>
+`
+
+let total=0
+let unit=""
+
+voucher.items.forEach((item,i)=>{
+
+total+=Number(item.qty)||0
+
+if(i===0){
+unit=item.units
+if(grandUnit==="") grandUnit=item.units
+}
+
+html+=`
+<tr>
+<td>${item.model_name}</td>
+<td>${item.pl_dx}</td>
+<td>${item.lq_pc}</td>
+<td>${item.colours}</td>
+<td>${item.qty}</td>
+<td>${item.units}</td>
+</tr>
+`
+})
+
+html+=`
+<tr class="total-row">
+<td colspan="4">TOTAL</td>
+<td>${total}</td>
+<td>${unit}</td>
+</tr>
+</table>
+
+</div>
+`
+
+grandTotal+=total
+
+})
+
+document.getElementById("reportContainer").innerHTML=html
+document.getElementById("grandTotalBox").innerHTML=
+"GRAND TOTAL : "+grandTotal+" "+grandUnit
+
+}
+
+function formatDate(d){
+let dt=new Date(d)
+let day=String(dt.getDate()).padStart(2,'0')
+let month=String(dt.getMonth()+1).padStart(2,'0')
+return day+"|"+month
+}
+
+function exportToExcel(){
+
+const wb=XLSX.utils.book_new()
+const ws={}
+
+let row=0
+let grandTotal=0
+let grandUnit=""
+
+function setCell(r,c,v,style){
+const ref=XLSX.utils.encode_cell({r:r,c:c})
+ws[ref]={v:v,t:"s",s:style||{}}
+}
+
+/* TITLE */
+
+setCell(row,0,"PAINTING REPORT",{
+font:{bold:true,sz:18},
+alignment:{horizontal:"center"}
+})
+
+ws["!merges"]=[{s:{r:0,c:0},e:{r:0,c:5}}]
+
+row++
+
+const grouped={}
+
+reportData.forEach(r=>{
+if(!grouped[r.id]){
+grouped[r.id]={header:r,items:[]}
+}
+grouped[r.id].items.push(r)
+})
+
+if(!ws["!rows"]) ws["!rows"]=[]
+
+Object.values(grouped).forEach(voucher=>{
+
+let header=voucher.header
+
+setCell(row,0,
+formatDate(header.received_date)+" | "+formatDate(header.delivery_date),
+{font:{bold:true},alignment:{horizontal:"center"}}
+)
+
+ws["!merges"].push({s:{r:row,c:0},e:{r:row,c:5}})
+
+row++
+
+setCell(row,0,header.party_name,{
+font:{bold:true,sz:12},
+alignment:{horizontal:"center"}
+})
+
+ws["!merges"].push({s:{r:row,c:0},e:{r:row,c:5}})
+
+row++
+
+const headers=["MODEL","PL/DX","LQ/PC","COLOUR","QTY","UNITS"]
+
+headers.forEach((h,i)=>{
+setCell(row,i,h,{
+font:{bold:true},
+alignment:{horizontal:"center"}
+})
+})
+
+row++
+
+let total=0
+let unit=""
+
+voucher.items.forEach((item,i)=>{
+
+setCell(row,0,item.model_name,{alignment:{horizontal:"center"}})
+setCell(row,1,item.pl_dx,{alignment:{horizontal:"center"}})
+setCell(row,2,item.lq_pc,{alignment:{horizontal:"center"}})
+setCell(row,3,item.colours,{alignment:{horizontal:"center"}})
+setCell(row,4,item.qty,{alignment:{horizontal:"center"}})
+setCell(row,5,item.units,{alignment:{horizontal:"center"}})
+
+total+=Number(item.qty||0)
+
+if(i===0){
+unit=item.units
+if(grandUnit==="") grandUnit=item.units
+}
+
+row++
+
+})
+
+setCell(row,3,"TOTAL",{font:{bold:true}})
+setCell(row,4,total,{font:{bold:true}})
+setCell(row,5,unit,{font:{bold:true}})
+
+row++
+
+ws["!rows"][row]={hpt:6}
+
+row++
+
+grandTotal+=total
+
+})
+
+setCell(row,2,"GRAND TOTAL",{font:{bold:true}})
+ws["!merges"].push({s:{r:row,c:2},e:{r:row,c:3}})
+
+setCell(row,4,grandTotal,{font:{bold:true}})
+setCell(row,5,grandUnit,{font:{bold:true}})
+
+ws["!cols"]=[
+{wch:10},
+{wch:10},
+{wch:10},
+{wch:10},
+{wch:8},
+{wch:10}
+]
+
+ws["!ref"]=XLSX.utils.encode_range({s:{r:0,c:0},e:{r:row,c:5}})
+
+/* APPLY GRID + DOUBLE OUTER BORDER */
+
+let lastRow=row
+let lastCol=5
+
+for(let r=0;r<=lastRow;r++){
+for(let c=0;c<=lastCol;c++){
+
+const ref=XLSX.utils.encode_cell({r:r,c:c})
+
+if(!ws[ref]) ws[ref]={v:"",t:"s",s:{}}
+
+ws[ref].s.border={
+top:{style:"thin"},
+bottom:{style:"thin"},
+left:{style:"thin"},
+right:{style:"thin"}
+}
+
+if(r===0) ws[ref].s.border.top={style:"double"}
+if(r===lastRow) ws[ref].s.border.bottom={style:"double"}
+if(c===0) ws[ref].s.border.left={style:"double"}
+if(c===lastCol) ws[ref].s.border.right={style:"double"}
+
+}
+}
+
+XLSX.utils.book_append_sheet(wb,ws,"Painting Report")
+
+XLSX.writeFile(wb,"Painting_Report.xlsx")
+
+}
+
+function printReport(){
+let content=document.getElementById("reportContainer").innerHTML
+let win=window.open("")
+win.document.write(content)
+win.print()
+}
+
+loadReport()
+
+</script>
+
+</body>
+</html>

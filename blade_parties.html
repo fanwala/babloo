@@ -1,0 +1,292 @@
+\<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Blade Party Master</title>
+
+<style>
+body{
+margin:0;
+font-family:Arial;
+}
+
+/* Sidebar */
+.sidebar{
+width:260px;
+height:100vh;
+background:#b3e5fc;
+position:fixed;
+left:0;
+top:0;
+padding-top:20px;
+}
+
+.menu-item{
+padding:12px 20px;
+cursor:pointer;
+font-weight:bold;
+}
+
+.menu-item:hover{
+background:#81d4fa;
+}
+
+.submenu{
+display:none;
+padding-left:15px;
+}
+
+.submenu div{
+padding:10px 20px;
+cursor:pointer;
+}
+
+.submenu div:hover{
+background:#4fc3f7;
+color:white;
+}
+
+/* Content */
+.content{
+margin-left:270px;
+padding:40px;
+}
+
+input{
+width:100%;
+padding:8px;
+margin-top:5px;
+margin-bottom:15px;
+}
+
+button{
+padding:6px 15px;
+cursor:pointer;
+}
+
+table{
+width:100%;
+border-collapse:collapse;
+}
+
+table,th,td{
+border:1px solid #bdbdbd;
+}
+
+th{
+background:#9ec9dd;
+}
+
+th,td{
+padding:10px;
+text-align:center;
+}
+
+.action-btn{
+padding:5px 10px;
+margin:2px;
+}
+</style>
+</head>
+
+<body>
+
+<!-- Sidebar -->
+
+<div class="sidebar">
+
+<div class="menu-item" onclick="toggleMenu('ordersMenu')">ORDERS</div>
+
+<div id="ordersMenu" class="submenu">
+
+<div class="menu-item" onclick="toggleMenu('bladesMenu')">Blades</div>
+
+<div id="bladesMenu" class="submenu">
+
+<div onclick="openPage('add_blades.html')">Add</div>
+<div onclick="openPage('show_blades.html')">Show</div>
+
+<div class="menu-item" onclick="toggleMenu('bladeMastersMenu')">Blade Masters</div>
+
+<div id="bladeMastersMenu" class="submenu">
+
+<div onclick="openPage('blade_models.html')">Model Names</div>
+<div onclick="openPage('parties.html')">Party Names</div>
+<div onclick="openPage('box.html')">Box Master</div>
+<div onclick="openPage('stc_master.html')">STC Master</div>
+<div onclick="openPage('trims_master.html')">Trims Master</div>
+
+</div>
+
+</div>
+
+</div>
+
+</div>
+
+<!-- Content -->
+
+<div class="content">
+
+<h1>BLADE PARTY MASTER</h1>
+
+<label>Enter Party Name</label>
+<input type="text" id="partyName" placeholder="Enter Party Name">
+
+<button onclick="saveParty()">Save</button>
+
+<hr>
+
+<label>Search Party</label>
+<input type="text" id="searchInput" onkeyup="searchParty()" placeholder="Search...">
+
+<br><br>
+
+<table>
+
+<thead>
+<tr>
+<th>ID</th>
+<th>Party Name</th>
+<th>Actions</th>
+</tr>
+</thead>
+
+<tbody id="partyTable"></tbody>
+
+</table>
+
+</div>
+
+<script>
+
+let editId=null;
+
+/* Sidebar */
+
+function toggleMenu(id){
+const m=document.getElementById(id);
+m.style.display=(m.style.display==="block")?"none":"block";
+}
+
+function openPage(page){
+window.location.href=page;
+}
+
+/* Load Parties */
+
+function loadParties(){
+
+fetch('/api/blade_parties')
+.then(res=>res.json())
+.then(data=>{
+
+const table=document.getElementById("partyTable");
+
+table.innerHTML="";
+
+data.forEach(item=>{
+
+table.innerHTML+=`
+<tr>
+<td>${item.id}</td>
+<td>${item.party_name}</td>
+<td>
+<button class="action-btn" onclick="setEdit(${item.id},'${item.party_name}')">Edit</button>
+<button class="action-btn" onclick="deleteParty(${item.id})">Delete</button>
+</td>
+</tr>
+`;
+
+});
+
+});
+
+}
+
+/* Save */
+
+function saveParty(){
+
+const name=document.getElementById("partyName").value.trim();
+
+if(!name){
+alert("Enter Party Name");
+return;
+}
+
+if(editId===null){
+
+fetch('/api/blade_parties',{
+method:'POST',
+headers:{'Content-Type':'application/json'},
+body:JSON.stringify({party_name:name})
+})
+.then(()=>{
+document.getElementById("partyName").value="";
+loadParties();
+});
+
+}
+
+else{
+
+fetch(`/api/blade_parties/${editId}`,{
+method:'PUT',
+headers:{'Content-Type':'application/json'},
+body:JSON.stringify({party_name:name})
+})
+.then(()=>{
+editId=null;
+document.getElementById("partyName").value="";
+loadParties();
+});
+
+}
+
+}
+
+/* Edit */
+
+function setEdit(id,name){
+editId=id;
+document.getElementById("partyName").value=name;
+}
+
+/* Delete */
+
+function deleteParty(id){
+
+if(!confirm("Delete this party?")) return;
+
+fetch(`/api/blade_parties/${id}`,{
+method:'DELETE'
+})
+.then(loadParties);
+
+}
+
+/* Search */
+
+function searchParty(){
+
+const keyword=document.getElementById("searchInput").value.toLowerCase();
+
+const rows=document.querySelectorAll("#partyTable tr");
+
+rows.forEach(row=>{
+
+const text=row.innerText.toLowerCase();
+
+row.style.display=text.includes(keyword) ? "" : "none";
+
+});
+
+}
+
+loadParties();
+
+</script>
+
+</body>
+</html>

@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Cover Masters</title>
+
+<style>
+body {
+    margin: 0;
+    font-family: Arial;
+}
+
+/* ===== Sidebar ===== */
+.sidebar {
+    width: 260px;
+    height: 100vh;
+    background-color: #b3e5fc;
+    position: fixed;
+    left: 0;
+    top: 0;
+    overflow-y: auto;
+    padding-top: 20px;
+}
+
+.menu-item {
+    padding: 12px 20px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.menu-item:hover {
+    background-color: #81d4fa;
+}
+
+.submenu {
+    display: none;
+    padding-left: 15px;
+}
+
+.submenu div {
+    padding: 10px 20px;
+    cursor: pointer;
+}
+
+.submenu div:hover {
+    background-color: #4fc3f7;
+    color: white;
+}
+
+/* ===== Content ===== */
+.content {
+    margin-left: 270px;
+    padding: 30px;
+}
+
+h1 {
+    text-align: center;
+    font-size: 30px;
+    font-weight: bold;
+}
+
+input {
+    padding: 6px;
+    width: 100%;
+}
+
+button {
+    padding: 6px 12px;
+    margin-top: 8px;
+    cursor: pointer;
+}
+
+table {
+    width: 100%;
+    margin-top: 20px;
+    border-collapse: collapse;
+}
+
+th, td {
+    border: 1px solid #ccc;
+    padding: 8px;
+    text-align: center;
+}
+
+th {
+    background-color: #b3e5fc;
+}
+
+.action-btn {
+    margin: 0 3px;
+}
+
+.error-msg {
+    color: red;
+    margin-top: 5px;
+}
+</style>
+</head>
+
+<body>
+
+<!-- ===== SIDEBAR ===== -->
+<div class="sidebar">
+
+    <div class="menu-item" onclick="toggleMenu('ordersMenu')">
+        ORDERS
+    </div>
+
+    <div id="ordersMenu" class="submenu">
+
+        <div class="menu-item" onclick="toggleMenu('coversMenu')">
+            Covers
+        </div>
+
+        <div id="coversMenu" class="submenu">
+            <div onclick="openPage('add_cover.html')">Add</div>
+            <div onclick="openPage('show_cover.html')">Show</div>
+            <div onclick="openPage('cover_masters.html')">Cover Masters</div>
+        </div>
+
+    </div>
+</div>
+
+<!-- ===== CONTENT ===== -->
+<div class="content">
+
+<h1>COVER MODEL MASTER</h1>
+
+<label>Enter Model Name:</label>
+<input type="text" id="model_name" placeholder="Enter Model Name">
+<div class="error-msg" id="errorMsg"></div>
+
+<button onclick="saveModel()">Save</button>
+
+<hr>
+
+<label>Search Model:</label>
+<input type="text" id="searchBox" placeholder="Search..." onkeyup="searchModels()">
+
+<table>
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Model Name</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody id="modelTable"></tbody>
+</table>
+
+</div>
+
+<script>
+
+/* ===== Sidebar ===== */
+function toggleMenu(id) {
+    const menu = document.getElementById(id);
+    menu.style.display = menu.style.display === "block" ? "none" : "block";
+}
+
+function openPage(page) {
+    window.location.href = page;
+}
+
+let editId = null;
+let modelList = [];
+
+/* ===== Load Models ===== */
+async function loadModels() {
+    const res = await fetch('/api/get_models');
+    const data = await res.json();
+    modelList = data.map(m => m.model_name.toLowerCase());
+    renderTable(data);
+}
+
+function renderTable(data) {
+    const table = document.getElementById("modelTable");
+    table.innerHTML = "";
+
+    data.forEach(row => {
+        table.innerHTML += `
+            <tr>
+                <td>${row.id}</td>
+                <td>${row.model_name}</td>
+                <td>
+                    <button class="action-btn" onclick="editModel(${row.id}, '${row.model_name}')">Edit</button>
+                    <button class="action-btn" onclick="deleteModel(${row.id})">Delete</button>
+                </td>
+            </tr>
+        `;
+    });
+}
+
+/* ===== Save / Update ===== */
+async function saveModel() {
+
+    const modelName = document.getElementById("model_name").value.trim();
+    const errorMsg = document.getElementById("errorMsg");
+
+    if (!modelName) {
+        errorMsg.innerText = "Model name cannot be empty";
+        return;
+    }
+
+    // Duplicate check (case insensitive)
+    if (!editId && modelList.includes(modelName.toLowerCase())) {
+        errorMsg.innerText = "Duplicate model name not allowed";
+        return;
+    }
+
+    errorMsg.innerText = "";
+
+    if (editId) {
+        await fetch(`/api/update_model/${editId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ model_name: modelName })
+        });
+        editId = null;
+    } else {
+        await fetch('/api/add_model', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ model_name: modelName })
+        });
+    }
+
+    document.getElementById("model_name").value = "";
+    loadModels();
+}
+
+/* ===== Edit ===== */
+function editModel(id, name) {
+    document.getElementById("model_name").value = name;
+    editId = id;
+    document.getElementById("errorMsg").innerText = "";
+}
+
+/* ===== Delete ===== */
+async function deleteModel(id) {
+    if (!confirm("Delete this model?")) return;
+
+    await fetch(`/api/delete_model/${id}`, {
+        method: 'DELETE'
+    });
+
+    loadModels();
+}
+
+/* ===== Search ===== */
+async function searchModels() {
+    const search = document.getElementById("searchBox").value;
+
+    const res = await fetch(`/api/search_models?search=${search}`);
+    const data = await res.json();
+    renderTable(data);
+}
+
+loadModels();
+
+</script>
+
+</body>
+</html>

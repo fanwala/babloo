@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Blade Voucher Entry</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<style>
+body{margin:0;font-family:Arial}
+
+.sidebar{
+width:260px;
+height:100vh;
+background:#b3e5fc;
+position:fixed;
+left:0;
+top:0;
+padding-top:20px;
+}
+
+.menu-item{
+padding:12px 20px;
+cursor:pointer;
+font-weight:bold;
+}
+
+.menu-item:hover{background:#81d4fa}
+
+.main{
+margin-left:260px;
+padding:30px;
+}
+
+input{
+width:100%;
+padding:6px;
+box-sizing:border-box;
+}
+
+table{
+width:100%;
+border-collapse:collapse;
+margin-top:15px;
+}
+
+th,td{
+border:1px solid #ccc;
+padding:6px;
+text-align:center;
+}
+
+th{background:#e0e0e0}
+
+.total-row{
+font-weight:bold;
+background:#f5f5f5;
+}
+
+button{
+margin-top:15px;
+padding:8px 15px;
+cursor:pointer;
+}
+</style>
+</head>
+
+<body>
+
+<div class="sidebar">
+<div class="menu-item">ORDERS</div>
+<div class="menu-item" onclick="location.href='add_blades.html'">Add Blades</div>
+<div class="menu-item" onclick="location.href='blade_packing.html'">Blade Packing</div>
+</div>
+
+<div class="main">
+
+<h2>BLADE VOUCHER ENTRY</h2>
+
+<form id="bladeForm">
+
+<div style="display:flex;gap:20px">
+
+<div style="flex:1">
+<label>Received Date</label>
+<input type="date" id="received_date" onclick="this.showPicker()">
+</div>
+
+<div style="flex:1">
+<label>Delivery Date</label>
+<input type="date" id="delivery_date" onclick="this.showPicker()">
+</div>
+
+</div>
+
+<br>
+
+<label>Party Name</label>
+<input list="partyList" id="party_name">
+<datalist id="partyList"></datalist>
+
+<table>
+
+<thead>
+<tr>
+<th>MODEL</th>
+<th>PL/DX</th>
+<th>LQ/PC</th>
+<th>COLOURS</th>
+<th>QTY</th>
+<th>UNITS</th>
+<th>BOX</th>
+<th>STC</th>
+<th>TRIMS</th>
+</tr>
+</thead>
+
+<tbody id="itemsBody">
+
+<tr class="item-row">
+
+<td><input list="modelList" class="model_name"></td>
+<td><input list="pldxList" class="pl_dx"></td>
+<td><input list="lqpcList" class="lq_pc"></td>
+<td><input list="colourList" class="colours"></td>
+
+<td><input type="number" class="qty"></td>
+
+<td><input list="unitList" class="units"></td>
+
+<td><input list="boxList" class="box"></td>
+<td><input list="stcList" class="stc"></td>
+<td><input list="trimsList" class="trims"></td>
+
+</tr>
+
+</tbody>
+
+<tfoot>
+
+<tr class="total-row">
+<td colspan="4">Total</td>
+<td id="totalQty">0</td>
+<td id="totalUnits">Nos</td>
+<td colspan="3"></td>
+</tr>
+
+</tfoot>
+
+</table>
+
+<button type="submit">Save</button>
+<button type="button" onclick="resetForm()">Refresh</button>
+
+</form>
+
+</div>
+
+<!-- DATA LISTS -->
+
+<datalist id="partyList"></datalist>
+<datalist id="modelList"></datalist>
+<datalist id="pldxList"></datalist>
+<datalist id="lqpcList"></datalist>
+<datalist id="colourList"></datalist>
+
+<datalist id="boxList"></datalist>
+<datalist id="stcList"></datalist>
+<datalist id="trimsList"></datalist>
+
+<datalist id="unitList">
+<option value="Nos">
+<option value="Sets">
+</datalist>
+
+<script>
+
+/* TOTAL */
+
+function calculateTotal(){
+
+let total=0
+let unit="Nos"
+
+document.querySelectorAll(".item-row").forEach((row,index)=>{
+
+const qty=row.querySelector(".qty").value
+const units=row.querySelector(".units").value
+
+total+=Number(qty)||0
+
+if(index===0 && units) unit=units
+
+})
+
+totalQty.innerText=total
+totalUnits.innerText=unit
+
+}
+
+/* AUTO EVENTS */
+
+function attachEvents(){
+
+document.querySelectorAll(".qty").forEach((input,index,arr)=>{
+
+input.oninput=function(){
+
+calculateTotal()
+
+if(index===arr.length-1 && input.value!=""){
+addRow()
+}
+
+}
+
+})
+
+}
+
+/* ADD ROW */
+
+function addRow(){
+
+const tbody=document.getElementById("itemsBody")
+const firstRow=document.querySelector(".item-row")
+
+const newRow=firstRow.cloneNode(true)
+
+newRow.querySelectorAll("input").forEach(i=>i.value="")
+
+tbody.appendChild(newRow)
+
+attachEvents()
+
+}
+
+/* LOAD MASTER DATA */
+
+fetch('/api/blade_parties')
+.then(res=>res.json())
+.then(data=>{
+data.forEach(p=>{
+partyList.innerHTML+=`<option value="${p.party_name}">`
+})
+})
+
+fetch('/api/blade_models')
+.then(res=>res.json())
+.then(data=>{
+data.forEach(m=>{
+modelList.innerHTML+=`<option value="${m.model_name}">`
+})
+})
+
+fetch('/api/blade_pldx')
+.then(res=>res.json())
+.then(data=>{
+data.forEach(p=>{
+pldxList.innerHTML+=`<option value="${p.pldx_name}">`
+})
+})
+
+fetch('/api/blade_lqpc')
+.then(res=>res.json())
+.then(data=>{
+data.forEach(l=>{
+lqpcList.innerHTML+=`<option value="${l.lqpc_name}">`
+})
+})
+
+fetch('/api/colours')
+.then(res=>res.json())
+.then(data=>{
+data.forEach(c=>{
+colourList.innerHTML+=`<option value="${c.name}">`
+})
+})
+
+fetch('/api/blade_boxes')
+.then(res=>res.json())
+.then(data=>{
+data.forEach(b=>{
+boxList.innerHTML+=`<option value="${b.box_name}">`
+})
+})
+
+fetch('/api/blade_stc')
+.then(res=>res.json())
+.then(data=>{
+data.forEach(s=>{
+stcList.innerHTML+=`<option value="${s.stc_name}">`
+})
+})
+
+fetch('/api/blade_trims')
+.then(res=>res.json())
+.then(data=>{
+data.forEach(t=>{
+trimsList.innerHTML+=`<option value="${t.trims_name}">`
+})
+})
+
+attachEvents()
+
+/* SAVE */
+
+document.getElementById("bladeForm").addEventListener("submit", function(e){
+
+e.preventDefault()
+
+/* CHECK MAIN FIELDS */
+
+const party = document.getElementById("party_name").value
+const received = document.getElementById("received_date").value
+const delivery = document.getElementById("delivery_date").value
+
+if(!party || !received || !delivery){
+alert("Please fill Party Name, Received Date and Delivery Date")
+return
+}
+
+/* CHECK ITEM ROWS */
+
+const items = []
+let invalid = false
+
+document.querySelectorAll(".item-row").forEach(row=>{
+
+const model = row.querySelector(".model_name").value
+const pldx = row.querySelector(".pl_dx").value
+const lqpc = row.querySelector(".lq_pc").value
+const colour = row.querySelector(".colours").value
+const qty = row.querySelector(".qty").value
+const units = row.querySelector(".units").value
+const box = row.querySelector(".box").value
+const stc = row.querySelector(".stc").value
+const trims = row.querySelector(".trims").value
+
+/* CHECK IF ROW IS USED */
+
+if(model || qty){
+
+if(!model || !pldx || !lqpc || !colour || !qty || !units || !box || !stc || !trims){
+
+invalid = true
+return
+
+}
+
+items.push({
+model_name: model,
+pl_dx: pldx,
+lq_pc: lqpc,
+colours: colour,
+qty: qty,
+units: units,
+box: box,
+stc: stc,
+trims: trims
+})
+
+}
+
+})
+
+if(invalid){
+alert("Please fill all fields in the row")
+return
+}
+
+if(items.length === 0){
+alert("Please enter at least one item")
+return
+}
+
+/* PREPARE DATA */
+
+const data = {
+party_name: party,
+received_date: received,
+delivery_date: delivery,
+total_qty: document.getElementById("totalQty").innerText,
+total_units: document.getElementById("totalUnits").innerText,
+items: items
+}
+
+/* SAVE */
+
+fetch("/save_blade",{
+method:"POST",
+headers:{"Content-Type":"application/json"},
+body:JSON.stringify(data)
+})
+.then(res=>res.json())
+.then(result=>{
+
+alert(result.message)
+
+/* REFRESH PAGE */
+
+window.location.reload()
+
+})
+.catch(err=>{
+console.error(err)
+alert("Error saving voucher")
+})
+
+})
+
+function resetForm(){
+
+/* RESET FORM */
+
+document.getElementById("bladeForm").reset()
+
+/* REMOVE EXTRA ROWS */
+
+const tbody=document.getElementById("itemsBody")
+const rows=tbody.querySelectorAll(".item-row")
+
+rows.forEach((row,index)=>{
+if(index>0){
+row.remove()
+}
+})
+
+/* CLEAR FIRST ROW */
+
+const firstRow=tbody.querySelector(".item-row")
+
+firstRow.querySelectorAll("input").forEach(input=>{
+input.value=""
+})
+
+/* RESET TOTAL */
+
+document.getElementById("totalQty").innerText="0"
+document.getElementById("totalUnits").innerText="Nos"
+
+}
+</script>
+
+</body>
+</html>

@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+
+<html>
+<head>
+
+<title>Cover LQ/PC Master</title>
+
+<style>
+
+body{
+    font-family: Arial, Helvetica, sans-serif;
+    background:#f4f6f9;
+    margin:0;
+}
+
+.container{
+    width:900px;
+    margin:auto;
+    margin-top:40px;
+    background:white;
+    padding:30px;
+    border-radius:6px;
+    box-shadow:0 2px 10px rgba(0,0,0,0.1);
+}
+
+h1{
+    text-align:center;
+    margin-bottom:25px;
+}
+
+label{
+    font-weight:bold;
+}
+
+input{
+    width:100%;
+    padding:8px;
+    margin-top:6px;
+    margin-bottom:10px;
+    border:1px solid #ccc;
+    border-radius:4px;
+}
+
+button{
+    padding:7px 14px;
+    border:none;
+    background:#1976d2;
+    color:white;
+    border-radius:4px;
+    cursor:pointer;
+}
+
+button:hover{
+    background:#0d47a1;
+}
+
+.table-container{
+    margin-top:25px;
+}
+
+table{
+    width:100%;
+    border-collapse:collapse;
+}
+
+th,td{
+    border:1px solid #ddd;
+    padding:8px;
+    text-align:center;
+}
+
+th{
+    background:#e3f2fd;
+}
+
+.actions button{
+    margin-right:5px;
+}
+
+.error{
+    color:red;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="container">
+
+<h1>COVER LQ / PC MASTER</h1>
+
+<label>Enter LQ / PC</label> <input type="text" id="lqpc_name">
+
+<div class="error" id="errorMsg"></div>
+
+<button onclick="saveLQPC()">Save</button>
+
+<hr>
+
+<label>Search</label> <input type="text" id="searchBox" onkeyup="searchLQPC()">
+
+<div class="table-container">
+
+<table>
+
+<thead>
+<tr>
+<th>ID</th>
+<th>LQ / PC</th>
+<th>Actions</th>
+</tr>
+</thead>
+
+<tbody id="lqpcTable"></tbody>
+
+</table>
+
+</div>
+
+</div>
+
+<script>
+
+let editId = null;
+
+document.addEventListener("DOMContentLoaded", function(){
+    loadLQPC();
+});
+
+
+async function loadLQPC(){
+
+    const res = await fetch('/api/get_lqpc');
+    const data = await res.json();
+
+    renderTable(data);
+
+}
+
+
+function renderTable(data){
+
+    const table = document.getElementById("lqpcTable");
+
+    table.innerHTML="";
+
+    data.forEach(row=>{
+
+        const tr=document.createElement("tr");
+
+        tr.innerHTML = `
+            <td>${row.id}</td>
+            <td>${row.lqpc_name}</td>
+            <td class="actions">
+                <button onclick="editLQPC(${row.id},'${row.lqpc_name}')">Edit</button>
+                <button onclick="deleteLQPC(${row.id})">Delete</button>
+            </td>
+        `;
+
+        table.appendChild(tr);
+
+    });
+
+}
+
+
+async function saveLQPC(){
+
+    const name=document.getElementById("lqpc_name").value.trim();
+
+    if(!name){
+        document.getElementById("errorMsg").textContent="Value cannot be empty";
+        return;
+    }
+
+    document.getElementById("errorMsg").textContent="";
+
+    if(editId){
+
+        await fetch(`/api/update_lqpc/${editId}`,{
+            method:'PUT',
+            headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({lqpc_name:name})
+        });
+
+        editId=null;
+
+    }else{
+
+        await fetch('/api/add_lqpc',{
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({lqpc_name:name})
+        });
+
+    }
+
+    document.getElementById("lqpc_name").value="";
+
+    loadLQPC();
+
+}
+
+
+function editLQPC(id,name){
+
+    editId=id;
+
+    document.getElementById("lqpc_name").value=name;
+
+}
+
+
+async function deleteLQPC(id){
+
+    if(!confirm("Delete this item?")) return;
+
+    await fetch(`/api/delete_lqpc/${id}`,{
+        method:'DELETE'
+    });
+
+    loadLQPC();
+
+}
+
+
+async function searchLQPC(){
+
+    const search=document.getElementById("searchBox").value;
+
+    const res=await fetch(`/api/search_lqpc?search=${search}`);
+
+    const data=await res.json();
+
+    renderTable(data);
+
+}
+
+</script>
+
+</body>
+</html>

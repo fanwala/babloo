@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Party Masters</title>
+
+<style>
+body {
+    margin: 0;
+    font-family: Arial;
+}
+
+/* Sidebar */
+.sidebar {
+    width: 260px;
+    height: 100vh;
+    background-color: #b3e5fc;
+    position: fixed;
+    left: 0;
+    top: 0;
+    overflow-y: auto;
+    padding-top: 20px;
+}
+
+.menu-item {
+    padding: 12px 20px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.menu-item:hover {
+    background-color: #81d4fa;
+}
+
+.submenu {
+    display: none;
+    padding-left: 15px;
+}
+
+.submenu div {
+    padding: 10px 20px;
+    cursor: pointer;
+}
+
+.submenu div:hover {
+    background-color: #4fc3f7;
+    color: white;
+}
+
+/* Content */
+.content {
+    margin-left: 270px;
+    padding: 30px;
+}
+
+h1 {
+    text-align: center;
+    font-size: 30px;
+    font-weight: bold;
+}
+
+input {
+    padding: 6px;
+    width: 100%;
+}
+
+button {
+    padding: 6px 12px;
+    margin-top: 8px;
+    cursor: pointer;
+}
+
+table {
+    width: 100%;
+    margin-top: 20px;
+    border-collapse: collapse;
+}
+
+th, td {
+    border: 1px solid #ccc;
+    padding: 8px;
+    text-align: center;
+}
+
+th {
+    background-color: #b3e5fc;
+}
+
+.action-btn {
+    margin: 0 3px;
+}
+
+.error-msg {
+    color: red;
+    margin-top: 5px;
+}
+</style>
+</head>
+
+<body>
+
+<!-- SIDEBAR -->
+<div class="sidebar">
+
+    <div class="menu-item" onclick="toggleMenu('ordersMenu')">
+        ORDERS
+    </div>
+
+    <div id="ordersMenu" class="submenu">
+
+        <div class="menu-item" onclick="toggleMenu('coversMenu')">
+            Covers
+        </div>
+
+        <div id="coversMenu" class="submenu">
+
+            <div onclick="openPage('add_cover.html')">Add</div>
+            <div onclick="openPage('show_cover.html')">Show</div>
+
+            <div class="menu-item" onclick="toggleMenu('coverMastersMenu')">
+                Cover Masters
+            </div>
+
+            <div id="coverMastersMenu" class="submenu">
+                <div onclick="openPage('model_masters.html')">Model Names</div>
+                <div onclick="openPage('party_masters.html')">Party Names</div>
+            </div>
+
+        </div>
+
+    </div>
+</div>
+
+<!-- CONTENT -->
+<div class="content">
+
+<h1>PARTY MASTER</h1>
+
+<label>Enter Party Name:</label>
+<input type="text" id="party_name" placeholder="Enter Party Name">
+<div class="error-msg" id="errorMsg"></div>
+
+<button onclick="saveParty()">Save</button>
+
+<hr>
+
+<label>Search Party:</label>
+<input type="text" id="searchBox" placeholder="Search..." onkeyup="searchParties()">
+
+<table>
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Party Name</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody id="partyTable"></tbody>
+</table>
+
+</div>
+
+<script>
+
+function toggleMenu(id) {
+    const menu = document.getElementById(id);
+    menu.style.display = menu.style.display === "block" ? "none" : "block";
+}
+
+function openPage(page) {
+    window.location.href = page;
+}
+
+let editId = null;
+let partyList = [];
+
+async function loadParties() {
+    const res = await fetch('/api/get_parties');
+    const data = await res.json();
+    partyList = data.map(p => p.party_name.toLowerCase());
+    renderTable(data);
+}
+
+function renderTable(data) {
+    const table = document.getElementById("partyTable");
+    table.innerHTML = "";
+
+    data.forEach(row => {
+        table.innerHTML += `
+            <tr>
+                <td>${row.id}</td>
+                <td>${row.party_name}</td>
+                <td>
+                    <button class="action-btn" onclick="editParty(${row.id}, '${row.party_name}')">Edit</button>
+                    <button class="action-btn" onclick="deleteParty(${row.id})">Delete</button>
+                </td>
+            </tr>
+        `;
+    });
+}
+
+async function saveParty() {
+
+    const partyName = document.getElementById("party_name").value.trim();
+    const errorMsg = document.getElementById("errorMsg");
+
+    if (!partyName) {
+        errorMsg.innerText = "Party name cannot be empty";
+        return;
+    }
+
+    if (!editId && partyList.includes(partyName.toLowerCase())) {
+        errorMsg.innerText = "Duplicate party name not allowed";
+        return;
+    }
+
+    errorMsg.innerText = "";
+
+    if (editId) {
+        await fetch(`/api/update_party/${editId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ party_name: partyName })
+        });
+        editId = null;
+    } else {
+        await fetch('/api/add_party', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ party_name: partyName })
+        });
+    }
+
+    document.getElementById("party_name").value = "";
+    loadParties();
+}
+
+function editParty(id, name) {
+    document.getElementById("party_name").value = name;
+    editId = id;
+    document.getElementById("errorMsg").innerText = "";
+}
+
+async function deleteParty(id) {
+    if (!confirm("Delete this party?")) return;
+
+    await fetch(`/api/delete_party/${id}`, {
+        method: 'DELETE'
+    });
+
+    loadParties();
+}
+
+async function searchParties() {
+    const search = document.getElementById("searchBox").value;
+
+    const res = await fetch(`/api/search_parties?search=${search}`);
+    const data = await res.json();
+    renderTable(data);
+}
+
+loadParties();
+
+</script>
+
+</body>
+</html>

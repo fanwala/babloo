@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Edit Cover Order</title>
+
+<style>
+body{
+margin:0;
+font-family:Arial;
+background:#f4f6f9;
+}
+
+/* Main container */
+.main{
+margin-left:260px;
+padding:30px;
+}
+
+/* Form Styling */
+.form-group{
+margin-bottom:20px;
+position:relative;
+width:100%;
+max-width:500px;
+}
+
+input{
+width:100%;
+padding:10px;
+font-size:14px;
+border:1px solid #ccc;
+border-radius:4px;
+}
+
+/* Suggestion Box */
+.suggestions{
+position:absolute;
+top:100%;
+left:0;
+right:0;
+background:#fff;
+border:1px solid #ccc;
+max-height:150px;
+overflow-y:auto;
+display:none;
+z-index:999;
+}
+
+.suggestions div{
+padding:8px;
+cursor:pointer;
+}
+
+.suggestions div:hover{
+background:#e3f2fd;
+}
+
+button{
+padding:10px 20px;
+background:#1976d2;
+color:#fff;
+border:none;
+border-radius:4px;
+cursor:pointer;
+}
+</style>
+</head>
+
+<body>
+
+<div class="main">
+<h2>Edit Cover Order</h2>
+
+<div class="form-group">
+<label>PL/DX</label>
+<input type="text" id="pldx">
+<div id="pldxList" class="suggestions"></div>
+</div>
+
+<div class="form-group">
+<label>LQ/PC</label>
+<input type="text" id="lqpc">
+<div id="lqpcList" class="suggestions"></div>
+</div>
+
+<div class="form-group">
+<label>Colour</label>
+<input type="text" id="colour">
+<div id="colourList" class="suggestions"></div>
+</div>
+
+<button>Update</button>
+
+</div>
+
+<script>
+
+// Global arrays
+let pldxData = [];
+let lqpcData = [];
+let colourData = [];
+
+// Fetch Data From Tables
+fetch("get_pldx.php")
+.then(res => res.json())
+.then(data => pldxData = data);
+
+fetch("get_lqpc.php")
+.then(res => res.json())
+.then(data => lqpcData = data);
+
+fetch("get_colors.php")
+.then(res => res.json())
+.then(data => colourData = data);
+
+
+// Generic Auto Suggest Function
+function setupAutoSuggest(inputId, boxId, dataArray){
+
+const input = document.getElementById(inputId);
+const box = document.getElementById(boxId);
+
+input.addEventListener("input", function(){
+
+let value = this.value.toLowerCase();
+box.innerHTML = "";
+
+if(value === ""){
+box.style.display = "none";
+return;
+}
+
+let filtered = dataArray.filter(item =>
+item.toLowerCase().includes(value)
+);
+
+filtered.forEach(item => {
+let div = document.createElement("div");
+div.textContent = item;
+
+div.onclick = function(){
+input.value = item;
+box.style.display = "none";
+};
+
+box.appendChild(div);
+});
+
+box.style.display = filtered.length ? "block" : "none";
+
+});
+
+// Hide on outside click
+document.addEventListener("click", function(e){
+if(!input.contains(e.target) && !box.contains(e.target)){
+box.style.display = "none";
+}
+});
+
+}
+
+
+// Initialize Suggestions
+setupAutoSuggest("pldx", "pldxList", pldxData);
+setupAutoSuggest("lqpc", "lqpcList", lqpcData);
+setupAutoSuggest("colour", "colourList", colourData);
+
+</script>
+
+</body>
+</html>

@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>ADD COVER VOUCHER</title>
+
+<style>
+body{
+    margin:0;
+    font-family:Arial;
+    background:#f4f6f9;
+}
+
+/* Sidebar */
+.sidebar{
+    width:230px;
+    height:100vh;
+    background:#b3e5fc;
+    position:fixed;
+    left:0;
+    top:0;
+    padding-top:20px;
+}
+
+.sidebar h2{
+    text-align:center;
+}
+
+.sidebar a{
+    display:block;
+    padding:12px 20px;
+    text-decoration:none;
+    color:black;
+}
+
+.sidebar a:hover{
+    background:#81d4fa;
+}
+
+/* Main Area */
+.main{
+    margin-left:230px;
+    padding:20px 30px;
+    width:calc(100% - 230px);
+    box-sizing:border-box;
+}
+
+/* Inputs */
+input, select{
+    padding:6px;
+    border:1px solid #ccc;
+    border-radius:4px;
+    box-sizing:border-box;
+}
+
+/* Full width inputs above table */
+#received_date,
+#delivery_date,
+#party_name{
+    width:100%;
+}
+
+/* Table */
+table{
+    width:100%;
+    margin-top:20px;
+    border-collapse:collapse;
+    table-layout:fixed;
+}
+
+th{
+    background:#2196f3;
+    color:white;
+    padding:10px;
+}
+
+td{
+    padding:10px;
+}
+
+/* Make table inputs stretch */
+td input[type="text"],
+td select{
+    width:100%;
+}
+
+/* Remove arrows from number */
+input[type=number]::-webkit-inner-spin-button, 
+input[type=number]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+input[type=number] {
+    -moz-appearance: textfield;
+}
+
+/* Compact QTY */
+.qty{
+    width:100%;
+    max-width:80px;
+    text-align:center;
+}
+
+/* Button */
+.save-btn{
+    margin-top:25px;
+    padding:10px 20px;
+    background:#2196f3;
+    color:white;
+    border:2px solid #2196f3;
+    cursor:pointer;
+}
+
+.save-btn span{
+    padding:4px 8px;
+}
+
+.save-btn:focus{
+    outline:none;
+}
+
+.save-btn:focus span{
+    border:2px solid white;
+}
+</style>
+</head>
+
+<body>
+
+<div class="sidebar">
+    <h2>MENU</h2>
+    <a href="#">Dashboard</a>
+    <a href="#">Add Cover Voucher</a>
+</div>
+
+<div class="main">
+
+<h2>ADD COVER VOUCHER</h2>
+
+<form id="voucherForm">
+
+<label>Received Date</label>
+<input type="date" id="received_date" onclick="this.showPicker()" required>
+
+<label>Delivery Date</label>
+<input type="date" id="delivery_date" onclick="this.showPicker()" required>
+
+<label>Party Name</label>
+<input type="text" id="party_name" list="partyList" required>
+<datalist id="partyList"></datalist>
+
+<table border="1">
+
+<thead>
+<tr>
+    <th>MODEL</th>
+    <th>PL/DX</th>
+    <th>LQ/PC</th>
+    <th>COLOURS</th>
+    <th>QTY</th>
+    <th>UNITS</th>
+</tr>
+</thead>
+
+<tbody id="tableBody"></tbody>
+
+<tfoot>
+<tr>
+    <th colspan="4" style="text-align:right;">TOTAL</th>
+    <th id="totalQty">0</th>
+    <th id="totalUnits"></th>
+</tr>
+</tfoot>
+
+</table>
+
+<button type="submit" class="save-btn">
+    <span>Save Voucher</span>
+</button>
+
+</form>
+</div>
+
+<script>
+
+/* ---------- Master Lists ---------- */
+
+function loadMasterLists(){
+
+fetch('/api/party_names')
+.then(res=>res.json())
+.then(data=>{
+    const list=document.getElementById('partyList');
+    data.forEach(r=>{
+        list.innerHTML += `<option value="${r.party_name}"></option>`;
+    });
+});
+
+fetch('/api/models')
+.then(res=>res.json())
+.then(data=>{
+    const list=document.getElementById('modelList');
+    data.forEach(r=>{
+        list.innerHTML += `<option value="${r.model_name}"></option>`;
+    });
+});
+
+fetch('/api/pldx')
+.then(res=>res.json())
+.then(data=>{
+    const list=document.getElementById('pldxList');
+    data.forEach(r=>{
+        list.innerHTML += `<option value="${r.pldx_name}"></option>`;
+    });
+});
+
+fetch('/api/lqpc')
+.then(res=>res.json())
+.then(data=>{
+    const list=document.getElementById('lqpcList');
+    data.forEach(r=>{
+        list.innerHTML += `<option value="${r.lqpc_name}"></option>`;
+    });
+});
+
+fetch('/api/colors')
+.then(res=>res.json())
+.then(data=>{
+    const list=document.getElementById('colorList');
+    data.forEach(r=>{
+        list.innerHTML += `<option value="${r.color_name}"></option>`;
+    });
+});
+}
+
+/* Datalists */
+document.body.insertAdjacentHTML('beforeend', `
+<datalist id="modelList"></datalist>
+<datalist id="pldxList"></datalist>
+<datalist id="lqpcList"></datalist>
+<datalist id="colorList"></datalist>
+`);
+
+/* Add Row */
+function addNewRow(){
+
+const tbody=document.getElementById('tableBody');
+
+const row=document.createElement('tr');
+
+row.innerHTML=`
+<td><input type="text" class="model" list="modelList"></td>
+<td><input type="text" class="pldx" list="pldxList"></td>
+<td><input type="text" class="lqpc" list="lqpcList"></td>
+<td><input type="text" class="color" list="colorList"></td>
+<td><input type="number" class="qty" min="0"></td>
+<td>
+<select class="units">
+<option value="Nos">Nos</option>
+<option value="Sets">Sets</option>
+</select>
+</td>
+`;
+
+tbody.appendChild(row);
+
+row.querySelector('.qty').addEventListener('input',function(){
+updateTotal();
+checkAddRow();
+});
+
+row.querySelector('.units').addEventListener('change',function(){
+updateTotalUnit();
+});
+}
+
+/* Auto Add Row */
+function checkAddRow(){
+const rows=document.querySelectorAll('#tableBody tr');
+const lastRow=rows[rows.length-1];
+if(lastRow.querySelector('.qty').value!==""){
+addNewRow();
+}
+}
+
+/* Total */
+function updateTotal(){
+let total=0;
+document.querySelectorAll('.qty').forEach(input=>{
+if(input.value!==""){
+total+=parseFloat(input.value);
+}
+});
+document.getElementById('totalQty').innerText=total;
+updateTotalUnit();
+}
+
+function updateTotalUnit(){
+const firstRow=document.querySelector('#tableBody tr');
+if(!firstRow) return;
+document.getElementById('totalUnits').innerText=
+firstRow.querySelector('.units').value;
+}
+
+/* Submit */
+document.getElementById('voucherForm').addEventListener('submit',function(e){
+
+e.preventDefault();
+
+const rows=document.querySelectorAll('#tableBody tr');
+let items=[];
+
+rows.forEach(row=>{
+const qty=row.querySelector('.qty').value;
+if(qty!==""){
+items.push({
+model:row.querySelector('.model').value,
+pldx:row.querySelector('.pldx').value,
+lqpc:row.querySelector('.lqpc').value,
+color:row.querySelector('.color').value,
+qty:qty,
+units:row.querySelector('.units').value
+});
+}
+});
+
+const data={
+received_date:received_date.value,
+delivery_date:delivery_date.value,
+party_name:party_name.value,
+items:items
+};
+
+fetch('/api/add_cover_voucher',{
+method:'POST',
+headers:{'Content-Type':'application/json'},
+body:JSON.stringify(data)
+})
+.then(res=>res.json())
+.then(response=>{
+alert(response.message);
+location.reload();
+});
+
+});
+
+/* Init */
+window.onload=function(){
+loadMasterLists();
+addNewRow();
+};
+
+</script>
+
+</body>
+</html>

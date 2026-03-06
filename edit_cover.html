@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Edit Cover Voucher</title>
+
+<style>
+body{
+font-family:Arial;
+background:#f4f6f9;
+margin:0;
+padding:20px
+}
+
+.container{
+background:white;
+padding:20px;
+border-radius:6px;
+box-shadow:0 2px 6px rgba(0,0,0,0.1)
+}
+
+input{
+padding:6px;
+width:100%;
+box-sizing:border-box;
+}
+
+table{
+width:100%;
+border-collapse:collapse;
+margin-top:15px
+}
+
+th,td{
+border:1px solid #ccc;
+padding:8px;
+text-align:center
+}
+
+th{
+background:#2196f3;
+color:white
+}
+
+.save-btn{
+background:#2196f3;
+color:white;
+padding:8px 14px;
+border:none;
+cursor:pointer;
+margin-top:15px
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<h2>Edit Cover Voucher</h2>
+
+<label>Received Date</label>
+<input type="date" id="received_date">
+
+<label>Delivery Date</label>
+<input type="date" id="delivery_date">
+
+<label>Party Name</label>
+<input list="partyList" id="party_name">
+<datalist id="partyList"></datalist>
+
+<table id="itemsTable">
+<thead>
+<tr>
+<th>Model</th>
+<th>PL/DX</th>
+<th>LQ/PC</th>
+<th>Colour</th>
+<th>Qty</th>
+<th>Units</th>
+</tr>
+</thead>
+<tbody></tbody>
+</table>
+
+<button class="save-btn" onclick="updateVoucher()">Update Voucher</button>
+
+</div>
+
+
+<script>
+
+    const urlParams = new URLSearchParams(window.location.search)
+    const voucherId = urlParams.get("id")
+    
+    async function loadMasters(){
+    
+    const parties = await fetch('/api/party_names').then(r=>r.json())
+    const models  = await fetch('/api/models').then(r=>r.json())
+    const pldx    = await fetch('/api/pldx').then(r=>r.json())
+    const lqpc    = await fetch('/api/lqpc').then(r=>r.json())
+    const colors  = await fetch('/api/colors').then(r=>r.json())
+    
+    // 🔥 CLEAR FIRST
+    document.getElementById("partyList").innerHTML = ""
+    document.getElementById("modelList").innerHTML = ""
+    document.getElementById("pldxList").innerHTML  = ""
+    document.getElementById("lqpcList").innerHTML  = ""
+    document.getElementById("colorList").innerHTML = ""
+    
+    // 🔥 FILL CORRECTLY
+    
+    parties.forEach(p=>{
+    let opt=document.createElement("option")
+    opt.value=p.party_name
+    partyList.appendChild(opt)
+    })
+    
+    models.forEach(m=>{
+    let opt=document.createElement("option")
+    opt.value=m.model_name
+    modelList.appendChild(opt)
+    })
+    
+    pldx.forEach(p=>{
+    let opt=document.createElement("option")
+    opt.value=p.pldx_name
+    pldxList.appendChild(opt)
+    })
+    
+    lqpc.forEach(l=>{
+    let opt=document.createElement("option")
+    opt.value=l.lqpc_name
+    lqpcList.appendChild(opt)
+    })
+    
+    colors.forEach(c=>{
+    let opt=document.createElement("option")
+    opt.value=c.color_name
+    colorList.appendChild(opt)
+    })
+    
+    }
+    
+    async function loadVoucher(){
+    
+    const data = await fetch('/api/show_vouchers').then(r=>r.json())
+    const rows = data.filter(r=>r.voucher_id == voucherId)
+    
+    if(!rows.length){
+    alert("Voucher not found")
+    return
+    }
+    
+    const header=rows[0]
+    
+    received_date.value=header.received_date
+    delivery_date.value=header.delivery_date
+    party_name.value=header.party_name || ""
+    
+    const tbody=document.querySelector("#itemsTable tbody")
+    tbody.innerHTML=""
+    
+    rows.forEach(row=>{
+    addRow(
+    row.model_name,
+    row.pl_dx,
+    row.lq_pc,
+    row.colours,
+    row.qty,
+    row.units
+    )
+    })
+    
+    addRow()
+    
+    }
+    
+    function addRow(model="",pldx="",lqpc="",colour="",qty="",units=""){
+    
+    const tbody=document.querySelector("#itemsTable tbody")
+    
+    const tr=document.createElement("tr")
+    
+    tr.innerHTML=`
+    <td><input list="modelList" value="${model}"></td>
+    <td><input list="pldxList" value="${pldx}"></td>
+    <td><input list="lqpcList" value="${lqpc}"></td>
+    <td><input list="colorList" value="${colour}"></td>
+    <td><input type="number" value="${qty}" oninput="checkNewRow(this)"></td>
+    <td><input value="${units}"></td>
+    `
+    
+    tbody.appendChild(tr)
+    
+    }
+    
+    function checkNewRow(input){
+    
+    const row=input.closest("tr")
+    const rows=document.querySelectorAll("#itemsTable tbody tr")
+    
+    if(row === rows[rows.length-1] && input.value !== ""){
+    addRow()
+    }
+    
+    }
+    
+    async function updateVoucher(){
+    
+    const rows=document.querySelectorAll("#itemsTable tbody tr")
+    
+    let items=[]
+    
+    rows.forEach(row=>{
+    const inputs=row.querySelectorAll("input")
+    
+    if(inputs[0].value.trim() !== ""){
+    
+    items.push({
+    model_id:inputs[0].value,
+    pl_dx:inputs[1].value,
+    lq_pc:inputs[2].value,
+    colours:inputs[3].value,
+    qty:inputs[4].value,
+    units:inputs[5].value
+    })
+    
+    }
+    
+    })
+    
+    await fetch('/api/update_cover/'+voucherId,{
+    method:"PUT",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({
+    received_date:received_date.value,
+    delivery_date:delivery_date.value,
+    party_id:party_name.value,
+    items
+    })
+    })
+    
+    alert("Voucher Updated Successfully")
+    window.location="show_cover.html"
+    
+    }
+    
+    loadMasters().then(loadVoucher)
+
+    
+
+async function updateVoucher(){
+
+const received_date = document.getElementById("received_date").value.trim()
+const delivery_date = document.getElementById("delivery_date").value.trim()
+const party_name = document.getElementById("party_name").value.trim()
+
+// 🔴 Check header fields
+if(!received_date){
+alert("Received Date is required")
+document.getElementById("received_date").focus()
+return
+}
+
+if(!delivery_date){
+alert("Delivery Date is required")
+document.getElementById("delivery_date").focus()
+return
+}
+
+if(!party_name){
+alert("Party Name is required")
+document.getElementById("party_name").focus()
+return
+}
+
+const rows = document.querySelectorAll("#itemsTable tbody tr")
+
+let items=[]
+let hasError=false
+
+rows.forEach(row=>{
+
+if(hasError) return
+
+const inputs=row.querySelectorAll("input")
+
+const model   = inputs[0].value.trim()
+const pldx    = inputs[1].value.trim()
+const lqpc    = inputs[2].value.trim()
+const colour  = inputs[3].value.trim()
+const qty     = inputs[4].value.trim()
+const units   = inputs[5].value.trim()
+
+// Skip completely empty last row
+if(model==="" && pldx==="" && lqpc==="" && colour==="" && qty==="" && units===""){
+return
+}
+
+// 🔴 Validate each field
+if(!model){
+alert("Model cannot be blank")
+inputs[0].focus()
+hasError=true
+return
+}
+
+if(!pldx){
+alert("PL/DX cannot be blank")
+inputs[1].focus()
+hasError=true
+return
+}
+
+if(!lqpc){
+alert("LQ/PC cannot be blank")
+inputs[2].focus()
+hasError=true
+return
+}
+
+if(!colour){
+alert("Colour cannot be blank")
+inputs[3].focus()
+hasError=true
+return
+}
+
+if(!qty){
+alert("Quantity cannot be blank")
+inputs[4].focus()
+hasError=true
+return
+}
+
+if(!units){
+alert("Units cannot be blank")
+inputs[5].focus()
+hasError=true
+return
+}
+
+items.push({
+model_id:model,
+pl_dx:pldx,
+lq_pc:lqpc,
+colours:colour,
+qty:qty,
+units:units
+})
+
+})
+
+if(hasError) return
+
+if(items.length === 0){
+alert("At least one item is required")
+return
+}
+
+await fetch('/api/update_cover/'+voucherId,{
+method:"PUT",
+headers:{"Content-Type":"application/json"},
+body:JSON.stringify({
+received_date,
+delivery_date,
+party_id:party_name,
+items
+})
+})
+
+alert("Voucher Updated Successfully")
+window.location="show_cover.html"
+
+}
+   
+    </script>
+<!-- Master Datalists -->
+<datalist id="modelList"></datalist>
+<datalist id="pldxList"></datalist>
+<datalist id="lqpcList"></datalist>
+<datalist id="colorList"></datalist>
+
+</body>
+</html>

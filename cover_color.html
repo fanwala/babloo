@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Cover Color Master</title>
+
+<style>
+body { margin:0; font-family:Arial; }
+.content { margin-left:20px; padding:30px; }
+h1 { text-align:center; }
+input { padding:6px; width:100%; }
+button { padding:6px 12px; margin-top:8px; cursor:pointer; }
+table { width:100%; margin-top:20px; border-collapse:collapse; }
+th,td { border:1px solid #ccc; padding:8px; text-align:center; }
+th { background:#b3e5fc; }
+.error-msg { color:red; }
+</style>
+
+</head>
+<body>
+
+<div class="content">
+
+<h1>COVER COLOR MASTER</h1>
+
+<label>Enter Color:</label>
+<input type="text" id="color_name">
+<div class="error-msg" id="errorMsg"></div>
+
+<button onclick="saveColor()">Save</button>
+
+<hr>
+
+<label>Search:</label>
+<input type="text" id="searchBox" onkeyup="searchColor()">
+
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Color</th>
+<th>Actions</th>
+</tr>
+</thead>
+<tbody id="colorTable"></tbody>
+</table>
+
+</div>
+
+<script>
+
+let editId = null;
+
+/* LOAD DATA */
+async function loadColors(){
+    const res = await fetch('/api/get_colors');
+    const data = await res.json();
+    renderTable(data);
+}
+
+/* RENDER TABLE */
+function renderTable(data){
+    const table = document.getElementById("colorTable");
+    table.innerHTML = "";
+
+    data.forEach(row=>{
+        table.innerHTML += `
+            <tr>
+                <td>${row.id}</td>
+                <td>${row.color_name}</td>
+                <td>
+                    <button onclick="editColor(${row.id}, '${row.color_name}')">Edit</button>
+                    <button onclick="deleteColor(${row.id})">Delete</button>
+                </td>
+            </tr>
+        `;
+    });
+}
+
+/* SAVE OR UPDATE */
+async function saveColor(){
+
+    const name = document.getElementById("color_name").value.trim();
+    const errorMsg = document.getElementById("errorMsg");
+
+    if(!name){
+        errorMsg.innerText = "Color cannot be empty";
+        return;
+    }
+
+    errorMsg.innerText = "";
+
+    if(editId !== null){
+
+        await fetch(`/api/update_color/${editId}`,{
+            method:'PUT',
+            headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({ color_name:name })
+        });
+
+        editId = null;
+
+    }else{
+
+        await fetch('/api/add_color',{
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({ color_name:name })
+        });
+
+    }
+
+    document.getElementById("color_name").value="";
+    loadColors();
+}
+
+/* EDIT */
+function editColor(id,name){
+    document.getElementById("color_name").value = name;
+    editId = id;
+}
+
+/* DELETE */
+async function deleteColor(id){
+    if(!confirm("Delete this color?")) return;
+
+    await fetch(`/api/delete_color/${id}`,{
+        method:'DELETE'
+    });
+
+    loadColors();
+}
+
+/* SEARCH */
+async function searchColor(){
+    const search = document.getElementById("searchBox").value;
+
+    const res = await fetch(`/api/search_colors?search=${search}`);
+    const data = await res.json();
+    renderTable(data);
+}
+
+loadColors();
+
+</script>
+
+</body>
+</html>

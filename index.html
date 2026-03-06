@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Order Fan Dashboards</title>
+
+<style>
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+}
+
+/* Sidebar */
+.sidebar {
+    width: 260px;
+    height: 100vh;
+    background-color: #b3e5fc;
+    position: fixed;
+    left: 0;
+    top: 0;
+    overflow-y: auto;
+    padding-top: 20px;
+}
+
+.menu-item {
+    padding: 12px 20px;
+    cursor: pointer;
+    font-weight: bold;
+    user-select: none;
+}
+
+.menu-item:hover {
+    background-color: #81d4fa;
+}
+
+.submenu {
+    display: none;
+    padding-left: 15px;
+}
+
+.submenu div {
+    padding: 10px 20px;
+    cursor: pointer;
+    font-weight: normal;
+}
+
+.submenu div:hover {
+    background-color: #4fc3f7;
+    color: white;
+}
+
+/* Main Content */
+.content {
+    margin-left: 270px;
+    padding: 20px;
+}
+</style>
+</head>
+
+<body>
+
+<!-- ===== SIDEBAR ===== -->
+<div class="sidebar">
+
+    <!-- ORDERS -->
+    <div class="menu-item" onclick="toggleMenu('ordersMenu')">
+        ORDERS
+    </div>
+
+    <div id="ordersMenu" class="submenu">
+
+        <!-- Covers -->
+        <div class="menu-item" onclick="toggleMenu('coversMenu')">
+            Covers
+        </div>
+
+        <div id="coversMenu" class="submenu">
+
+            <div onclick="openPage('add_cover.html')">Add</div>
+            <div onclick="openPage('show_cover.html')">Show</div>
+
+            <!-- Cover Masters -->
+            <div class="menu-item" onclick="toggleMenu('coverMastersMenu')">
+                Cover Masters
+            </div>
+
+            <div id="coverMastersMenu" class="submenu">
+                <div onclick="openPage('model_masters.html')">Model Names</div>
+                <div onclick="openPage('party_masters.html')">Party Names</div>
+                <div onclick="openPage('cover_color.html')">Colour Names</div>
+                <div onclick="openPage('cover_pl_dx.html')">PL/DX Names</div>
+                <div onclick="openPage('cover_lq_pc.html')">LQ/PC Names</div>
+
+            </div>
+
+        </div>
+
+        <!-- Blades -->
+        <div class="menu-item" onclick="toggleMenu('bladesMenu')">
+            Blades
+        </div>
+
+        <div id="bladesMenu" class="submenu">
+
+            <div onclick="openPage('add_blades.html')">Add</div>
+
+            <!-- Show submenu under Blades -->
+            <div class="menu-item" onclick="toggleMenu('bladeShowMenu')">
+                Show
+            </div>
+
+            <div id="bladeShowMenu" class="submenu">
+                <div onclick="openPage('blade_packing.html')">Blade Packing</div>
+                
+                
+            </div>
+
+            <!-- Blade Masters -->
+            <div class="menu-item" onclick="toggleMenu('bladeMastersMenu')">
+                Blade Masters
+            </div>
+
+            <div id="bladeMastersMenu" class="submenu">
+                <div onclick="openPage('blade_models.html')">Model Names</div>
+                <div onclick="openPage('blade_parties.html')">Party Names</div>
+                <div onclick="openPage('box.html')">BOX Names</div>
+                <div onclick="openPage('blade_pldx.html')">PL/DX Names</div>
+                <div onclick="openPage('blade_lqpc.html')">LQ/PC Names</div>
+                <div onclick="openPage('stc.html')">STC Names</div>
+                <div onclick="openPage('trims.html')">TRIMS Names</div>
+                <div onclick="openPage('blade_colours.html')">Colour Names</div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+<!-- ===== MAIN CONTENT ===== -->
+<div class="content">
+    <h2>Welcome to Order Fan System</h2>
+</div>
+
+<script>
+function toggleMenu(id) {
+    const menu = document.getElementById(id);
+    menu.style.display = (menu.style.display === "block") ? "none" : "block";
+}
+
+function openPage(page) {
+    window.location.href = page;
+}
+</script>
+
+</body>
+</html>

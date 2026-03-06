@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Edit Blade Voucher</title>
+
+<style>
+body{font-family:Arial;background:#f4f6f9;padding:20px}
+h2{margin-bottom:20px}
+
+input{
+width:100%;
+padding:6px;
+border:1px solid #ccc;
+border-radius:5px;
+}
+
+table{
+width:100%;
+border-collapse:collapse;
+margin-top:15px;
+background:#fff;
+}
+
+th,td{
+border:1px solid #ccc;
+padding:6px;
+text-align:center;
+}
+
+th{background:#eee}
+
+.total-row{
+background:#f5f5f5;
+font-weight:bold;
+}
+
+button{
+padding:8px 14px;
+margin-top:15px;
+cursor:pointer;
+}
+</style>
+</head>
+
+<body>
+
+<h2>Edit Blade Voucher</h2>
+
+<div style="display:flex;gap:20px">
+
+<div style="flex:1">
+<label>Received Date</label>
+<input type="date" id="received_date">
+</div>
+
+<div style="flex:1">
+<label>Delivery Date</label>
+<input type="date" id="delivery_date">
+</div>
+
+</div>
+
+<br>
+
+<label>Party Name</label>
+<input list="partyList" id="party_name">
+<datalist id="partyList"></datalist>
+
+<table>
+
+<thead>
+<tr>
+<th>MODEL</th>
+<th>PL/DX</th>
+<th>LQ/PC</th>
+<th>COLOURS</th>
+<th>QTY</th>
+<th>UNITS</th>
+<th>BOX</th>
+<th>STC</th>
+<th>TRIMS</th>
+</tr>
+</thead>
+
+<tbody id="itemsBody"></tbody>
+
+<tfoot>
+<tr class="total-row">
+<td colspan="4">Total</td>
+<td id="totalQty">0</td>
+<td id="totalUnits">Nos</td>
+<td colspan="3"></td>
+</tr>
+</tfoot>
+
+</table>
+
+<button onclick="updateVoucher()">Update</button>
+<button onclick="history.back()">Back</button>
+
+<!-- DATA LISTS -->
+
+<datalist id="partyList"></datalist>
+<datalist id="modelList"></datalist>
+<datalist id="pldxList"></datalist>
+<datalist id="lqpcList"></datalist>
+<datalist id="colourList"></datalist>
+<datalist id="boxList"></datalist>
+<datalist id="stcList"></datalist>
+<datalist id="trimsList"></datalist>
+
+<datalist id="unitList">
+<option value="Nos">
+<option value="Sets">
+</datalist>
+
+<script>
+
+/* FORCE DATALIST OPEN */
+
+document.addEventListener("dblclick",function(e){
+
+if(e.target.matches("input[list]")){
+
+let input=e.target
+let val=input.value
+
+input.value=val+" "
+input.value=val
+
+}
+
+})
+
+/* GET VOUCHER */
+
+const params=new URLSearchParams(window.location.search)
+const voucher=params.get("voucher")
+
+/* TOTAL */
+
+function calculateTotal(){
+
+let total=0
+let unit="Nos"
+
+document.querySelectorAll(".item-row").forEach((row,index)=>{
+
+const qty=row.querySelector(".qty").value
+const units=row.querySelector(".units").value
+
+total+=Number(qty)||0
+
+if(index===0 && units) unit=units
+
+})
+
+totalQty.innerText=total
+totalUnits.innerText=unit
+
+}
+
+/* LOAD MASTER DATA */
+
+function loadList(url,listId,field){
+
+fetch(url)
+.then(res=>res.json())
+.then(data=>{
+
+const list=document.getElementById(listId)
+
+data.forEach(item=>{
+list.innerHTML+=`<option value="${item[field]}">`
+})
+
+})
+
+}
+
+loadList('/api/blade_parties','partyList','party_name')
+loadList('/api/blade_models','modelList','model_name')
+loadList('/api/blade_pldx','pldxList','pldx_name')
+loadList('/api/blade_lqpc','lqpcList','lqpc_name')
+loadList('/api/colours','colourList','name')
+loadList('/api/blade_boxes','boxList','box_name')
+loadList('/api/blade_stc','stcList','stc_name')
+loadList('/api/blade_trims','trimsList','trims_name')
+
+/* LOAD VOUCHER */
+
+fetch(`/api/blade_voucher/${voucher}`)
+.then(res=>res.json())
+.then(data=>{
+
+if(!data.length){
+alert("Voucher not found")
+return
+}
+
+party_name.value=data[0].party_name
+received_date.value=(data[0].received_date||"").split("T")[0]
+delivery_date.value=(data[0].delivery_date||"").split("T")[0]
+
+const tbody=document.getElementById("itemsBody")
+
+data.forEach(row=>{
+
+let tr=document.createElement("tr")
+tr.className="item-row"
+
+tr.innerHTML=`
+
+<td><input list="modelList" class="model_name" value="${row.model_name||''}"></td>
+<td><input list="pldxList" class="pl_dx" value="${row.pl_dx||''}"></td>
+<td><input list="lqpcList" class="lq_pc" value="${row.lq_pc||''}"></td>
+<td><input list="colourList" class="colours" value="${row.colours||''}"></td>
+
+<td><input type="number" class="qty" value="${row.qty||''}" oninput="calculateTotal()"></td>
+
+<td><input list="unitList" class="units" value="${row.units||''}"></td>
+
+<td><input list="boxList" class="box" value="${row.box||''}"></td>
+<td><input list="stcList" class="stc" value="${row.stc||''}"></td>
+<td><input list="trimsList" class="trims" value="${row.trims||''}"></td>
+
+`
+
+tbody.appendChild(tr)
+
+})
+
+calculateTotal()
+
+})
+
+/* UPDATE */
+
+function updateVoucher(){
+
+let items=[]
+let invalid=false
+
+document.querySelectorAll(".item-row").forEach(row=>{
+
+const model=row.querySelector(".model_name").value
+const pldx=row.querySelector(".pl_dx").value
+const lqpc=row.querySelector(".lq_pc").value
+const colour=row.querySelector(".colours").value
+const qty=row.querySelector(".qty").value
+const units=row.querySelector(".units").value
+const box=row.querySelector(".box").value
+const stc=row.querySelector(".stc").value
+const trims=row.querySelector(".trims").value
+
+if(model || qty){
+
+if(!model || !pldx || !lqpc || !colour || !qty || !units || !box || !stc || !trims){
+invalid=true
+return
+}
+
+items.push({
+model_name:model,
+pl_dx:pldx,
+lq_pc:lqpc,
+colours:colour,
+qty:qty,
+units:units,
+box:box,
+stc:stc,
+trims:trims
+})
+
+}
+
+})
+
+if(invalid){
+alert("Please complete all fields")
+return
+}
+
+fetch(`/api/update_blade_voucher/${voucher}`,{
+
+method:"PUT",
+headers:{"Content-Type":"application/json"},
+body:JSON.stringify({
+
+party_name:party_name.value,
+received_date:received_date.value,
+delivery_date:delivery_date.value,
+items:items
+
+})
+
+})
+.then(r=>r.json())
+.then(()=>{
+alert("Voucher Updated")
+window.location.href="blade_packing.html"
+})
+
+}
+
+</script>
+
+</body>
+</html>

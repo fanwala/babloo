@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Blade Packing Report</title>
+
+    <style>
+        body{
+            font-family: Arial, sans-serif;
+            padding:20px;
+            background:#f4f6f9;
+        }
+
+        h2{
+            text-align:center;
+            margin-bottom:20px;
+        }
+
+        .action-bar{
+            display:flex;
+            justify-content:flex-end;
+            gap:15px;
+            margin-bottom:25px;
+        }
+
+        .action-btn{
+            padding:12px 22px;
+            font-size:15px;
+            border:none;
+            border-radius:8px;
+            cursor:pointer;
+            color:white;
+            font-weight:bold;
+            box-shadow:0 4px 10px rgba(0,0,0,0.2);
+        }
+
+        .print-btn{
+            background:linear-gradient(135deg,#0d6efd,#003b8e);
+        }
+
+        .excel-btn{
+            background:linear-gradient(135deg,#198754,#0f5132);
+        }
+
+        .close-btn{
+            background:linear-gradient(135deg,#dc3545,#842029);
+        }
+
+        .voucher-box{
+            background:white;
+            border-radius:8px;
+            padding:15px;
+            margin-bottom:25px;
+            box-shadow:0 4px 10px rgba(0,0,0,0.1);
+        }
+
+        .voucher-header{
+            display:flex;
+            justify-content:space-between;
+            margin-bottom:10px;
+            font-weight:bold;
+        }
+
+        table{
+            width:100%;
+            border-collapse:collapse;
+        }
+
+        th, td{
+            border:1px solid #ddd;
+            padding:8px;
+            text-align:center;
+        }
+
+        th{
+            background:#007bff;
+            color:white;
+        }
+
+        .total-row{
+            background:#e9ecef;
+            font-weight:bold;
+        }
+
+        @media print{
+            .action-bar{
+                display:none;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<h2>Blade Packing Report</h2>
+
+<div class="action-bar">
+    <button class="action-btn print-btn" onclick="printReport()">🖨 Print</button>
+    <button class="action-btn excel-btn" onclick="exportToExcel()">📊 Export to Excel</button>
+    <button class="action-btn close-btn" onclick="goBack()">✖ Close</button>
+</div>
+
+<div id="reportContainer"></div>
+
+<script>
+
+const params = new URLSearchParams(window.location.search);
+const from = params.get("from");
+const to = params.get("to");
+
+fetch(`/api/blade_packing_range?from=${from}&to=${to}`)
+.then(res => res.json())
+.then(data => renderVoucherWise(data))
+.catch(err => console.log(err));
+
+function renderVoucherWise(data){
+
+    const container = document.getElementById("reportContainer");
+    container.innerHTML = "";
+
+    if(!data || data.length === 0){
+        container.innerHTML = "<div>No vouchers found.</div>";
+        return;
+    }
+
+    let currentVoucher = null;
+    let totalQty = 0;
+    let firstUnit = "";
+    let tbody;
+
+    data.forEach((row,index)=>{
+
+        if(currentVoucher !== row.voucher_no){
+
+            if(currentVoucher !== null){
+                addTotalRow(tbody,totalQty,firstUnit);
+            }
+
+            currentVoucher = row.voucher_no;
+            totalQty = 0;
+            firstUnit = "";
+
+            const box = document.createElement("div");
+            box.className="voucher-box";
+
+            const header = document.createElement("div");
+            header.className="voucher-header";
+            header.innerHTML = `
+                <div>
+                    Party: ${row.party_name}
+                </div>
+                <div style="text-align:right;">
+                    ${formatDate(row.received_date)} | ${formatDate(row.delivery_date)}
+                </div>
+            `;
+
+            const table = document.createElement("table");
+            table.innerHTML = `
+                <thead>
+                    <tr>
+                        <th>MODEL</th>
+                        <th>PL/DX</th>
+                        <th>LQ/PC</th>
+                        <th>Colours</th>
+                        <th>Qty</th>
+                        <th>Units</th>
+                        <th>Box</th>
+                        <th>STC</th>
+                        <th>Trims</th>
+                    </tr>
+                </thead>
+            `;
+
+            tbody = document.createElement("tbody");
+
+            table.appendChild(tbody);
+            box.appendChild(header);
+            box.appendChild(table);
+            container.appendChild(box);
+        }
+
+        totalQty += Number(row.qty);
+
+        if(firstUnit === ""){
+            firstUnit = row.units;
+        }
+
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+            <td>${row.model_name}</td>
+            <td>${row.pl_dx}</td>
+            <td>${row.lq_pc}</td>
+            <td>${row.colours}</td>
+            <td>${row.qty}</td>
+            <td>${row.units}</td>
+            <td>${row.box}</td>
+            <td>${row.stc}</td>
+            <td>${row.trims}</td>
+        `;
+
+        tbody.appendChild(tr);
+
+        if(index === data.length - 1){
+            addTotalRow(tbody,totalQty,firstUnit);
+        }
+    });
+}
+
+function addTotalRow(tbody,totalQty,firstUnit){
+    const tr = document.createElement("tr");
+    tr.className="total-row";
+    tr.innerHTML = `
+        <td colspan="4">Total</td>
+        <td>${totalQty}</td>
+        <td>${firstUnit}</td>
+        <td colspan="3"></td>
+    `;
+    tbody.appendChild(tr);
+}
+
+function printReport(){
+    window.print();
+}
+
+function exportToExcel(){
+
+    const fromShort = formatShortDate(from);
+    const toShort = formatShortDate(to);
+
+    let boxes = document.querySelectorAll(".voucher-box");
+    let html = "<table border='2'>";
+
+    // TITLE
+    html += `
+        <tr>
+            <td colspan="9" style="font-size:22px;font-weight:bold;text-align:center;">
+                PACKING
+            </td>
+        </tr>
+    `;
+
+   
+
+    boxes.forEach(box => {
+
+        let party = box.querySelector(".voucher-header div:first-child").innerText;
+
+        // Extract dates and convert to short format
+        let dateText = box.querySelector(".voucher-header div:last-child").innerText;
+        let [received, delivery] = dateText.split("|").map(d => d.trim());
+
+        html += `
+            <tr><td colspan="9" style="font-weight:bold;text-align:left;">${party}</td></tr>
+            <tr><td colspan="9" style="font-weight:bold;text-align:right;">
+                ${formatShortDateFromDisplay(received)} | ${formatShortDateFromDisplay(delivery)}
+            </td></tr>
+        `;
+
+        let table = box.querySelector("table");
+        html += table.innerHTML;
+
+        html += `<tr><td colspan="9"></td></tr>`;
+    });
+
+    html += "</table>";
+
+    let blob = new Blob([html], { type: "application/vnd.ms-excel" });
+    let url = URL.createObjectURL(blob);
+    let a = document.createElement("a");
+    a.href = url;
+    a.download = "PACKING_Report.xls";
+    a.click();
+}
+
+function goBack(){
+    window.location.href = "blade_packing.html";
+}
+
+function formatDate(dateString){
+    if(!dateString) return "";
+    const d = new Date(dateString);
+    return `${String(d.getDate()).padStart(2,'0')}-${String(d.getMonth()+1).padStart(2,'0')}-${d.getFullYear()}`;
+}
+
+function formatShortDate(dateString){
+    if(!dateString) return "";
+    const d = new Date(dateString);
+    return `${String(d.getDate()).padStart(2,'0')}-${String(d.getMonth()+1).padStart(2,'0')}`;
+}
+
+function formatShortDateFromDisplay(displayDate){
+    if(!displayDate) return "";
+    const parts = displayDate.split("-");
+    return `${parts[0]}-${parts[1]}`;
+}
+
+</script>
+
+</body>
+</html>

@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Show Covers</title>
+
+<style>
+body { margin:0; font-family:Arial; }
+
+/* Main Sidebar */
+.sidebar {
+    width:260px;
+    height:100vh;
+    background:#b3e5fc;
+    position:fixed;
+    left:0;
+    top:0;
+    padding-top:20px;
+}
+
+.menu-item {
+    padding:12px 20px;
+    cursor:pointer;
+    font-weight:bold;
+}
+
+.menu-item:hover { background:#81d4fa; }
+
+.content {
+    margin-left:270px;
+    padding:25px;
+}
+
+table {
+    width:100%;
+    border-collapse:collapse;
+}
+
+th, td {
+    border:1px solid #ccc;
+    padding:8px;
+    text-align:center;
+}
+
+th { background:#f1f1f1; }
+
+.summary-row {
+    cursor:pointer;
+    background:#fafafa;
+}
+
+.summary-row:hover { background:#e3f2fd; }
+
+/* Modal */
+.modal {
+    display:none;
+    position:fixed;
+    left:0;
+    top:0;
+    width:100%;
+    height:100%;
+    background:rgba(0,0,0,0.5);
+}
+
+.modal-content {
+    width:95%;
+    height:90vh;
+    margin:2% auto;
+    background:white;
+    display:flex;
+    overflow:hidden;
+}
+
+.modal-sidebar {
+    width:250px;
+    background:#b3e5fc;
+    padding-top:20px;
+    overflow-y:auto;
+}
+
+.modal-main {
+    flex:1;
+    padding:20px;
+    overflow-y:auto;
+    position:relative;
+}
+
+.close-btn {
+    position:absolute;
+    right:20px;
+    top:15px;
+    cursor:pointer;
+    font-size:22px;
+    font-weight:bold;
+}
+
+.action-buttons {
+    margin-bottom:15px;
+}
+
+.action-buttons button {
+    padding:8px 15px;
+    margin-right:10px;
+    border:none;
+    cursor:pointer;
+    font-weight:bold;
+}
+
+.print-btn { background:#4caf50; color:white; }
+.excel-btn { background:#2196f3; color:white; }
+
+/* Voucher Header */
+.voucher-header {
+    display:flex;
+    justify-content:space-between;
+    margin-bottom:10px;
+    font-weight:bold;
+}
+</style>
+</head>
+
+<body>
+
+<div class="sidebar">
+<div class="menu-item">ORDERS</div>
+<div class="menu-item" onclick="window.location='add_cover.html'">Add Cover</div>
+<div class="menu-item" onclick="window.location='show_cover.html'">Show Cover</div>
+</div>
+
+<div class="content">
+<h1>COVER REPORT</h1>
+<br>
+
+<table id="reportTable">
+<thead>
+<tr>
+<th>Received Date / Delivery Date</th>
+<th>Party Name</th>
+<th>Total Qty</th>
+<th>Units</th>
+</tr>
+</thead>
+<tbody></tbody>
+</table>
+</div>
+
+<!-- Modal -->
+<div id="detailsModal" class="modal">
+<div class="modal-content">
+
+    <div class="modal-sidebar">
+        <div class="menu-item">ORDERS</div>
+        <div class="menu-item" onclick="window.location='add_cover.html'">Add Cover</div>
+        <div class="menu-item" onclick="window.location='show_cover.html'">Show Cover</div>
+    </div>
+
+    <div class="modal-main">
+        <span class="close-btn" onclick="closeModal()">×</span>
+        <h2>Voucher-wise Transactions</h2>
+
+        <div class="action-buttons">
+            <button class="print-btn" onclick="printModal()">Print</button>
+            <button class="excel-btn" onclick="exportToExcel()">Export Excel</button>
+        </div>
+
+        <div id="modalTableContainer"></div>
+    </div>
+
+</div>
+</div>
+
+<script>
+
+function formatDateShort(dateString){
+    const d = new Date(dateString);
+    const day = String(d.getDate()).padStart(2,'0');
+    const month = String(d.getMonth()+1).padStart(2,'0');
+    return `${day}-${month}`;
+}
+
+function formatDateSQL(dateString){
+    const d = new Date(dateString);
+    const y = d.getFullYear();
+    const m = String(d.getMonth()+1).padStart(2,'0');
+    const da = String(d.getDate()).padStart(2,'0');
+    return `${y}-${m}-${da}`;
+}
+
+async function loadReport(){
+    const res = await fetch('/api/show_covers');
+    const data = await res.json();
+    const tbody=document.querySelector("#reportTable tbody");
+    tbody.innerHTML="";
+
+    data.forEach(row=>{
+        const received=formatDateShort(row.received_date);
+        const delivery=formatDateShort(row.delivery_date);
+        const cleanDate=formatDateSQL(row.received_date);
+
+        tbody.innerHTML+=`
+        <tr class="summary-row" onclick="loadDetailsByDate('${cleanDate}')">
+        <td>${received} / ${delivery}</td>
+        <td>${row.party_name}</td>
+        <td>${row.total_qty}</td>
+        <td>${row.units}</td>
+        </tr>`;
+    });
+}
+
+async function loadDetailsByDate(date){
+
+    const res = await fetch('/api/show_cover_details_by_date/'+date);
+    const data = await res.json();
+
+    if(!data || data.length===0){
+        alert("No transactions found");
+        return;
+    }
+
+    let html="";
+    let currentVoucher=null;
+    let voucherTotal=0;
+    let currentUnits="";
+    let headerReceived="";
+    let headerDelivery="";
+
+    data.forEach((d,index)=>{
+
+        if(currentVoucher !== d.voucher_no){
+
+            if(currentVoucher !== null){
+                html+=`
+                <tr style="font-weight:bold;background:#f1f1f1;">
+                <td colspan="4">TOTAL</td>
+                <td>${voucherTotal}</td>
+                <td>${currentUnits}</td>
+                </tr></table><br>`;
+            }
+
+            currentVoucher=d.voucher_no;
+            voucherTotal=0;
+            headerReceived=formatDateShort(d.received_date);
+            headerDelivery=formatDateShort(d.delivery_date);
+
+            html+=`
+            <div class="voucher-header">
+                <di
+                
+                v> ${d.party_name}</div>
+                <div>${headerReceived} / ${headerDelivery}</div>
+            </div>
+
+            <table>
+            <tr>
+            <th>Model</th>
+            <th>Type1</th>
+            <th>Type2</th>
+            <th>Colour</th>
+            <th>Qty</th>
+            <th>Units</th>
+            </tr>`;
+        }
+
+        voucherTotal+=parseFloat(d.qty);
+        currentUnits=d.units;
+
+        html+=`
+<tr>
+<td>${d.model_name}</td>
+<td>${d.pl_dx ? d.pl_dx.toUpperCase() : ""}</td>
+<td>${d.lq_pc ? d.lq_pc.toUpperCase() : ""}</td>
+<td>${d.colours}</td>
+<td>${d.qty}</td>
+<td>${d.units}</td>
+</tr>`;
+
+        if(index===data.length-1){
+            html+=`
+            <tr style="font-weight:bold;background:#f1f1f1;">
+            <td colspan="4">TOTAL</td>
+            <td>${voucherTotal}</td>
+            <td>${currentUnits}</td>
+            </tr></table>`;
+        }
+    });
+
+    document.getElementById("modalTableContainer").innerHTML=html;
+    document.getElementById("detailsModal").style.display="block";
+}
+
+function closeModal(){
+    document.getElementById("detailsModal").style.display="none";
+}
+
+function printModal(){
+    const content=document.getElementById("modalTableContainer").innerHTML;
+    const win=window.open("","","width=900,height=700");
+    win.document.write("<html><head><title>Print</title></head><body>"+content+"</body></html>");
+    win.document.close();
+    win.print();
+}
+
+function exportToExcel(){
+    let table=document.getElementById("modalTableContainer").innerHTML;
+    let blob=new Blob([table],{type:"application/vnd.ms-excel"});
+    let link=document.createElement("a");
+    link.href=URL.createObjectURL(blob);
+    link.download="Voucher_Report.xls";
+    link.click();
+}
+
+loadReport();
+
+</script>
+
+</body>
+</html>
